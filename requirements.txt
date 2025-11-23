@@ -32,3 +32,4 @@ numpy>=1.24.0,<2.0
 # remove cache pip cache purge
 # pip install -r requirements.txt --force-reinstall
 
+langchain-classic
