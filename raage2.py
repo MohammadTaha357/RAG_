@@ -34,7 +34,6 @@ with st.sidebar:
 
 if not api_key:
     st.warning(" 🔑  Please enter your Groq API Key in the sidebar")
-# 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
 
 # LLM + embeddings
 llm = ChatGroq(api_key=api_key, model="openai/gpt-oss-120b")
@@ -44,17 +43,31 @@ embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-
 uploaded_files = st.file_uploader(" 📚 Upload PDF files", type="pdf", accept_multiple_files=True)
 
 all_docs = []
+file_hashes = []
+
+@st.cache_data(show_spinner=False)
+def load_pdf_documents(uploaded_file):
+    import hashlib
+    file_hash = hashlib.sha256(uploaded_file.getvalue()).hexdigest()
+    import os
+    import tempfile
+    from langchain_community.document_loaders import PyPDFLoader
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+        tmp.write(uploaded_file.getvalue())
+        loader = PyPDFLoader(tmp.name)
+        docs = loader.load()
+        for d in docs:
+            d.metadata["source_file"] = uploaded_file.name
+        os.unlink(tmp.name)
+    return docs, file_hash
 
 if uploaded_files:
     for pdf in uploaded_files:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-            tmp.write(pdf.getvalue())
-            loader = PyPDFLoader(tmp.name)
-            docs = loader.load()
-            for d in docs:
-                d.metadata["source_file"] = pdf.name
-            all_docs.extend(docs)
-    st.success(" ✅ Loaded {len(all_docs)} pages from {len(uploaded_files)} PDFs")
+        docs, file_hash = load_pdf_documents(pdf)
+        all_docs.extend(docs)
+        file_hashes.append(file_hash)
+    st.success(f" ✅ Loaded {len(all_docs)} pages from {len(uploaded_files)} PDFs")
 else:
     st.info(" Please upload one or more PDFs to begin")
     st.stop()
